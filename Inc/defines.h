@@ -147,14 +147,14 @@
 #define MAX3(a, b, c) MAX(a, MAX(b, c))
 
 typedef struct {
-  uint16_t rr1;
-  uint16_t rr2;
-  uint16_t rl1;
-  uint16_t rl2;
-  uint16_t dcr;
-  uint16_t dcl;
-  uint16_t batt1;
-  uint16_t l_tx2;
-  uint16_t temp;
-  uint16_t l_rx2;
+  uint16_t rr1;  // adc1 conv 1 pc4
+  uint16_t rr2;  // adc2 conv 1 pc5
+  uint16_t rl1;  // adc1 conv 2 pa0
+  uint16_t rl2;  // adc2 conv 2 pc3
+  uint16_t dcr;  // adc1 conv 3 pc1
+  uint16_t dcl;  // adc2 conv 3 pc0
+  uint16_t batt1;  // adc1 conv 4 pc2
+  uint16_t l_tx2;  // adc2 conv 4 pa2 (marked as adc1 in png plan)
+  uint16_t temp;  // adc1 conv 5 internal temp sensor
+  uint16_t l_rx2;  // adc2 conv 5 pa3 (marked as adc2 in png plan)
 } adc_buf_t;

@@ -199,24 +199,24 @@ int main(void) {
   // Mode 3, rechts:   12 kmh, ohne Turbo
   // Mode 4, l + r:    22 kmh, 29 kmh mit Turbo
 
-  int16_t start_links  = adc_buffer.l_rx2;  // ADC1, links, rueckwearts
-  int16_t start_rechts = adc_buffer.l_tx2;  // ADC2, rechts, vorwaerts
+  int16_t start_links  = adc_buffer.l_rx2;  // ADC2, links, rueckwearts, gruen
+  int16_t start_rechts = adc_buffer.l_tx2;  // ADC1, rechts, vorwaerts, blau
   int8_t mode;
   HAL_Delay(300);
-  if(start_rechts > (ADC2_MAX - 450) && start_links > (ADC1_MAX - 450)){  // Mode 4
+  if(start_rechts > (ADC1_MAX - 450) && start_links > (ADC2_MAX - 450)){  // Mode 4
     mode = 4;
     beep(4);
-  } else if(start_rechts > (ADC2_MAX - 450)){  // Mode 3
+  } else if(start_rechts > (ADC1_MAX - 450)){  // Mode 3
     mode = 3;
     beep(3);
-  } else if(start_links > (ADC1_MAX - 450)){  // Mode 1
+  } else if(start_links > (ADC2_MAX - 450)){  // Mode 1
     mode = 1;
     beep(1);
   } else {  // Mode 2
     mode = 2;
     beep(2);
   }
-  while(adc_buffer.l_tx2 > (ADC2_MAX - 450) || adc_buffer.l_rx2 > (ADC1_MAX - 450)) HAL_Delay(100); //delay in ms, wait until potis released
+  while(adc_buffer.l_tx2 > (ADC1_MAX - 450) || adc_buffer.l_rx2 > (ADC2_MAX - 450)) HAL_Delay(100); //delay in ms, wait until potis released
 
   float board_temp_adc_filtered = (float)adc_buffer.temp;
   float board_temp_deg_c;
@@ -265,49 +265,49 @@ int main(void) {
     // ####### larsm's bobby car code #######
 
     // LOW-PASS FILTER (fliessender Mittelwert)
-    adc1_filtered = adc1_filtered * 0.9 + (float)adc_buffer.l_rx2 * 0.1; // links, rueckwearts
-    adc2_filtered = adc2_filtered * 0.9 + (float)adc_buffer.l_tx2 * 0.1; // rechts, vorwaerts
+    adc1_filtered = adc1_filtered * 0.9 + (float)adc_buffer.l_tx2 * 0.1;  // ADC1, TX, rechts, vorwaerts, blau
+    adc2_filtered = adc2_filtered * 0.9 + (float)adc_buffer.l_rx2 * 0.1;  // ADC2, RX, links, rueckwearts, gruen
 
     // magic numbers die ich nicht mehr nachvollziehen kann, faehrt sich aber gut ;-)
     #define LOSLASS_BREMS_ACC 0.996f  // naeher an 1 = gemaechlicher
-    #define DRUECK_ACC1 (1.0f - LOSLASS_BREMS_ACC + 0.001f)  // naeher an 0 = gemaechlicher
     #define DRUECK_ACC2 (1.0f - LOSLASS_BREMS_ACC + 0.001f)  // naeher an 0 = gemaechlicher
+    #define DRUECK_ACC1 (1.0f - LOSLASS_BREMS_ACC + 0.001f)  // naeher an 0 = gemaechlicher
     //die + 0.001f gleichen float ungenauigkeiten aus.
 
-    #define ADC1_DELTA (ADC1_MAX - ADC1_MIN)
     #define ADC2_DELTA (ADC2_MAX - ADC2_MIN)
+    #define ADC1_DELTA (ADC1_MAX - ADC1_MIN)
 
     if (mode == 1) {  // Mode 1, links: 3 kmh
       speedRL = (float)speedRL * LOSLASS_BREMS_ACC  // bremsen wenn kein poti gedrueckt
-              - (CLAMP(adc_buffer.l_rx2 - ADC1_MIN, 0, ADC1_DELTA) / (ADC1_DELTA / 280.0f)) * DRUECK_ACC1  // links gedrueckt = zusatzbremsen oder rueckwaertsfahren
-              + (CLAMP(adc_buffer.l_tx2 - ADC2_MIN, 0, ADC2_DELTA) / (ADC2_DELTA / 350.0f)) * DRUECK_ACC2;  // vorwaerts gedrueckt = beschleunigen 12s: 350=3kmh
+              - (CLAMP(adc_buffer.l_rx2 - ADC2_MIN, 0, ADC2_DELTA) / (ADC2_DELTA / 280.0f)) * DRUECK_ACC2   // links gedrueckt = zusatzbremsen oder rueckwaertsfahren
+              + (CLAMP(adc_buffer.l_tx2 - ADC1_MIN, 0, ADC1_DELTA) / (ADC1_DELTA / 350.0f)) * DRUECK_ACC1;  // vorwaerts gedrueckt = beschleunigen 12s: 350=3kmh
       weakl = 0;
       weakr = 0;
 
     } else if (mode == 2) { // Mode 2, default: 6 kmh
       speedRL = (float)speedRL * LOSLASS_BREMS_ACC
-              - (CLAMP(adc_buffer.l_rx2 - ADC1_MIN, 0, ADC1_DELTA) / (ADC1_DELTA / 310.0f)) * DRUECK_ACC1
-              + (CLAMP(adc_buffer.l_tx2 - ADC2_MIN, 0, ADC2_DELTA) / (ADC2_DELTA / 420.0f)) * DRUECK_ACC2;  // 12s: 400=5-6kmh 450=7kmh
+              - (CLAMP(adc_buffer.l_rx2 - ADC2_MIN, 0, ADC2_DELTA) / (ADC2_DELTA / 310.0f)) * DRUECK_ACC2
+              + (CLAMP(adc_buffer.l_tx2 - ADC1_MIN, 0, ADC1_DELTA) / (ADC1_DELTA / 420.0f)) * DRUECK_ACC1;  // 12s: 400=5-6kmh 450=7kmh
       weakl = 0;
       weakr = 0;
 
     } else if (mode == 3) { // Mode 3, rechts: 12 kmh
       speedRL = (float)speedRL * LOSLASS_BREMS_ACC
-              - (CLAMP(adc_buffer.l_rx2 - ADC1_MIN, 0, ADC1_DELTA) / (ADC1_DELTA / 340.0f)) * DRUECK_ACC1
-              + (CLAMP(adc_buffer.l_tx2 - ADC2_MIN, 0, ADC2_DELTA) / (ADC2_DELTA / 600.0f)) * DRUECK_ACC2;  // 12s: 600=12kmh
+              - (CLAMP(adc_buffer.l_rx2 - ADC2_MIN, 0, ADC2_DELTA) / (ADC2_DELTA / 340.0f)) * DRUECK_ACC2
+              + (CLAMP(adc_buffer.l_tx2 - ADC1_MIN, 0, ADC1_DELTA) / (ADC1_DELTA / 600.0f)) * DRUECK_ACC1;  // 12s: 600=12kmh
       weakl = 0;
       weakr = 0;
 
     } else if (mode == 4) { // Mode 4, l + r: full kmh
       // Feldschwaechung wird nur aktiviert wenn man schon sehr schnell ist. So gehts: Rechts voll druecken und warten bis man schnell ist, dann zusaetzlich links schnell voll druecken.
-      if (adc1_filtered > (ADC1_MAX - 450) && speedRL > 800) { // field weakening at high speeds
+      if (adc2_filtered > (ADC2_MAX - 450) && speedRL > 800) { // field weakening at high speeds
         speedRL = (float)speedRL * LOSLASS_BREMS_ACC
-              + (CLAMP(adc_buffer.l_tx2 - ADC2_MIN, 0, ADC2_DELTA) / (ADC2_DELTA / 1000.0f)) * DRUECK_ACC2;
+              + (CLAMP(adc_buffer.l_tx2 - ADC1_MIN, 0, ADC1_DELTA) / (ADC1_DELTA / 1000.0f)) * DRUECK_ACC1;
         weak = weak * 0.95 + 400.0 * 0.05;  // sanftes hinzuschalten des turbos, 12s: 400=29kmh
       } else { //normale fahrt ohne feldschwaechung
         speedRL = (float)speedRL * LOSLASS_BREMS_ACC
-              - (CLAMP(adc_buffer.l_rx2 - ADC1_MIN, 0, ADC1_DELTA) / (ADC1_DELTA / 340.0f)) * DRUECK_ACC1
-              + (CLAMP(adc_buffer.l_tx2 - ADC2_MIN, 0, ADC2_DELTA) / (ADC2_DELTA / 1000.0f)) * DRUECK_ACC2;  // 12s: 1000=22kmh
+              - (CLAMP(adc_buffer.l_rx2 - ADC2_MIN, 0, ADC2_DELTA) / (ADC2_DELTA / 340.0f)) * DRUECK_ACC2
+              + (CLAMP(adc_buffer.l_tx2 - ADC1_MIN, 0, ADC1_DELTA) / (ADC1_DELTA / 1000.0f)) * DRUECK_ACC1;  // 12s: 1000=22kmh
         weak = weak * 0.95;  // sanftes abschalten des turbos
       }
       weakr = weakl = (int)weak; // weak should never exceed 400 or 450 MAX!!
@@ -355,8 +355,8 @@ int main(void) {
       
       // ####### DEBUG SERIAL OUT #######
       #ifdef CONTROL_ADC
-        setScopeChannel(0, (int)adc1_filtered);  // 1: ADC1
-        setScopeChannel(1, (int)adc2_filtered);  // 2: ADC2
+        setScopeChannel(0, (int)adc1_filtered);  // 1: ADC1, TX, rechts, vorwaerts, blau
+        setScopeChannel(1, (int)adc2_filtered);  // 2: ADC2, RX, links, rueckwearts, gruen
       #endif
       setScopeChannel(2, (int)speedR);  // 3: output speed: 0-1000
       setScopeChannel(3, (int)speedL);  // 4: output speed: 0-1000

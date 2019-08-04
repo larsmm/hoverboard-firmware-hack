@@ -63,10 +63,10 @@
 // ###### CONTROL VIA TWO POTENTIOMETERS ######
 // ADC-calibration to cover the full poti-range: connect potis to left sensor board cable (0 to 3.3V) (do NOT use the red 15V wire in the cable!). see <How to calibrate>. turn the potis to minimum position, write value 1 to ADC1_MIN and value 2 to ADC2_MIN. turn to maximum position and repeat it for ADC?_MAX. make, flash and test it.
 #define CONTROL_ADC                 // use ADC as input. disable DEBUG_SERIAL_USART2!
-#define ADC1_MIN 350                // min ADC1-value while poti at minimum-position (0 - 4095)
-#define ADC1_MAX 3230               // max ADC1-value while poti at maximum-position (0 - 4095)
-#define ADC2_MIN 375                // min ADC2-value while poti at minimum-position (0 - 4095)
-#define ADC2_MAX 3230               // max ADC2-value while poti at maximum-position (0 - 4095)
+#define ADC1_MIN 350                // min ADC1-rechts-vorwaerts-blau-value   while poti at minimum-position (0 - 4095)
+#define ADC1_MAX 3230               // max ADC1-rechts-vorwaerts-blau-value   while poti at maximum-position (0 - 4095)
+#define ADC2_MIN 375                // min ADC2-links-rueckwearts-gruen-value while poti at minimum-position (0 - 4095)
+#define ADC2_MAX 3230               // max ADC2-links-rueckwearts-gruen-value while poti at maximum-position (0 - 4095)
 
 // ###### CONTROL VIA NINTENDO NUNCHUCK ######
 // left sensor board cable. keep cable short, use shielded cable, use ferrits, stabalize voltage in nunchuck, use the right one of the 2 types of nunchucks, add i2c pullups. use original nunchuck. most clones does not work very well.
