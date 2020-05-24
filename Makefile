@@ -10,6 +10,7 @@ TARGET = hover
 DEBUG = 1
 # optimization
 OPT = -Og
+# OPT = -O0  # without optimization, better for debugging
 
 # Build path
 BUILD_DIR = build
