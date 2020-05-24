@@ -25,8 +25,12 @@ Field weakening is only availible in mode 4. It can only be activated if you are
 ### Power and battery
 Peak power is around 34A = 1800W at 12 lithium battery cells. more power does not make much sense. the wheels are not able to get the power onto the ground. cooling of the board is no problem, the wheels will get too hot earlier. you will get around 20 km out of a 8 Ah 12s battery.
 
+### Build and flash
+* install Visual Studio Code
+* install PlatformIO IDE within VSCode extension system
+* File --> open folder: hoverboard-firmware-hack-bbcar
+* use "Build", "Upload" and "Serial Monitor" buttons
+
 ### more info
 * https://larsm.org/allrad-e-bobby-car/
 * https://figch.de/index.php?nav=bobbycar
-
-to be continued...
