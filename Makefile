@@ -82,8 +82,10 @@ AS_DEFS =
 # C defines
 C_DEFS =  \
 -DUSE_HAL_DRIVER \
--DSTM32F103xE
-
+-DSTM32F103xE# \
+# -DGIT_HASH=´git describe --always --dirty´ \
+# -DGIT_BRANCH=´git rev-parse --abbrev-ref HEAD´ \
+# -DDATE=´date´
 
 # AS includes
 AS_INCLUDES =
@@ -108,7 +110,7 @@ endif
 
 
 # Generate dependency information
-CFLAGS += -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@:%.o=%.d)"
+CFLAGS += -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -Wno-comment -Wno-parentheses
 
 
 #######################################
