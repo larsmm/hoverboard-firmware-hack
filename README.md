@@ -29,6 +29,7 @@ Peak power is around 34A = 1800W at 12 lithium battery cells. more power does no
 * install Visual Studio Code
 * install PlatformIO IDE within VSCode extension system
 * File --> open folder: hoverboard-firmware-hack-bbcar
+* edit config.h: calibrate battery voltage and poti ranges
 * use "Build", "Upload" and "Serial Monitor" buttons
 
 ### more info
