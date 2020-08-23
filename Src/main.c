@@ -23,6 +23,8 @@
 #include "defines.h"
 #include "setup.h"
 #include "config.h"
+#include "comms.h"
+#include <stdio.h>
 //#include "hd44780.h"
 
 void SystemClock_Config(void);
@@ -89,7 +91,7 @@ void beep(uint8_t anzahl) {  // blocking function, do not use in main loop!
 
 
 void poweroff() {
-    if (abs(speed) < 20) {
+    if (ABS(speed) < 20) {
         buzzerPattern = 0;
         enable = 0;
         for (int i = 0; i < 8; i++) {
@@ -147,12 +149,15 @@ int main(void) {
 
   HAL_GPIO_WritePin(LED_PORT, LED_PIN, 1);
 
-  int lastSpeedL = 0, lastSpeedR = 0;
-  int speedL = 0, speedR = 0, speedRL = 0;
+  static int lastSpeedL = 0, lastSpeedR = 0;
+  static int speedL = 0, speedR = 0;
+  static float speedRL = 0.0;
+  static float acc_cmd = 0.0;
+  static float brk_cmd = 0.0;
   // float direction = 1;
   
-  float adc1_filtered = 0.0;
-  float adc2_filtered = 0.0;
+  static float adc1_filtered = ADC1_MIN;
+  static float adc2_filtered = ADC2_MIN;
 
   #ifdef CONTROL_PPM
     PPM_Init();
@@ -190,38 +195,60 @@ int main(void) {
     LCD_WriteString(&lcd, "Initializing...");
   #endif
 
+  printf("\n");
+  printf("# hoverboard-firmware-hack larsm's Bobby Car Edition\n");
+  printf("# GCC Version: %s\n",__VERSION__);
+  printf("# Build Date: %s\n",__DATE__);
+  #ifdef CALIBRATION_MODE
+  printf("# CALIBRATION_MODE mode on\n");
+  #endif
+  printf("\n");
+  printf("# Mode 1: MAX_SPEED_FORWARDS_M1:%i ACC_FORWARDS_M1:%4.2f MAX_SPEED_BACKWARDS_M1:%i ACC_BACKWARDS_M1:%4.2f\n", MAX_SPEED_FORWARDS_M1, ACC_FORWARDS_M1, MAX_SPEED_BACKWARDS_M1, ACC_BACKWARDS_M1);
+  printf("# Mode 2: MAX_SPEED_FORWARDS_M2:%i ACC_FORWARDS_M2:%4.2f MAX_SPEED_BACKWARDS_M2:%i ACC_BACKWARDS_M2:%4.2f\n", MAX_SPEED_FORWARDS_M2, ACC_FORWARDS_M2, MAX_SPEED_BACKWARDS_M2, ACC_BACKWARDS_M2);
+  printf("# Mode 3: MAX_SPEED_FORWARDS_M3:%i ACC_FORWARDS_M3:%4.2f MAX_SPEED_BACKWARDS_M3:%i ACC_BACKWARDS_M3:%4.2f\n", MAX_SPEED_FORWARDS_M3, ACC_FORWARDS_M3, MAX_SPEED_BACKWARDS_M3, ACC_BACKWARDS_M3);
+  printf("# Mode 4: MAX_SPEED_FORWARDS_M4:%i ACC_FORWARDS_M4:%4.2f MAX_SPEED_BACKWARDS_M4:%i ACC_BACKWARDS_M4:%4.2f\n", MAX_SPEED_FORWARDS_M4, ACC_FORWARDS_M4, MAX_SPEED_BACKWARDS_M4, ACC_BACKWARDS_M4);
+  printf("\n");
 
   // ####### driving modes #######
 
   // beim einschalten gashebel gedrueckt halten um modus einzustellen:
-  // Mode 1, links:     3 kmh, ohne Turbo
-  // Mode 2, default:   6 kmh, ohne Turbo
-  // Mode 3, rechts:   12 kmh, ohne Turbo
-  // Mode 4, l + r:    22 kmh, 29 kmh mit Turbo
-
+  // Drive Mode 1, links:     3 kmh, ohne Turbo
+  // Drive Mode 2, default:   6 kmh, ohne Turbo
+  // Drive Mode 3, rechts:   12 kmh, ohne Turbo
+  // Drive Mode 4, l + r:    22 kmh, 29 kmh mit Turbo
+  // #ifndef CALIBRATION_MODE
   int16_t start_links  = adc_buffer.l_rx2;  // ADC2, links, rueckwearts, gruen
   int16_t start_rechts = adc_buffer.l_tx2;  // ADC1, rechts, vorwaerts, blau
-  int8_t mode;
+  static int8_t drive_mode;
   HAL_Delay(300);
-  if(start_rechts > (ADC1_MAX - 450) && start_links > (ADC2_MAX - 450)){  // Mode 4
-    mode = 4;
+  if(start_rechts > (ADC1_MAX - (ADC1_MAX - ADC1_MIN)*0.2) && start_links > (ADC2_MAX - (ADC2_MAX - ADC2_MIN)*0.2)){  // Mode 4
+    drive_mode = 4;
     beep(4);
-  } else if(start_rechts > (ADC1_MAX - 450)){  // Mode 3
-    mode = 3;
+  } else if(start_rechts > (ADC1_MAX - (ADC1_MAX - ADC1_MIN)*0.2)){  // Mode 3
+    drive_mode = 3;
     beep(3);
-  } else if(start_links > (ADC2_MAX - 450)){  // Mode 1
-    mode = 1;
+  } else if(start_links > (ADC2_MAX - (ADC2_MAX - ADC2_MIN)*0.2)){  // Mode 1
+    drive_mode = 1;
     beep(1);
   } else {  // Mode 2
-    mode = 2;
+    drive_mode = 2;
     beep(2);
   }
-  while(adc_buffer.l_tx2 > (ADC1_MAX - 450) || adc_buffer.l_rx2 > (ADC2_MAX - 450)) HAL_Delay(100); //delay in ms, wait until potis released
+  printf("# Mode: %i\n", drive_mode);
+
+  #ifndef CALIBRATION_MODE
+  printf("# waiting for poti release...\n");
+  while(adc_buffer.l_tx2 > (ADC1_MAX - (ADC1_MAX - ADC1_MIN)*0.2) || adc_buffer.l_rx2 > (ADC2_MAX - (ADC2_MAX - ADC2_MIN)*0.2)) HAL_Delay(100); //delay in ms, wait until potis released
+  printf("# potis released\n");
+
+  enable = 1;  // enable motors
+  #endif
+
+  printf("# enabling motors, entering main loop\n");
+  HAL_Delay(20); //delay in ms
 
   float board_temp_adc_filtered = (float)adc_buffer.temp;
   float board_temp_deg_c;
-
-  enable = 1;  // enable motors
 
   while(1) {
     HAL_Delay(DELAY_IN_MAIN_LOOP); //delay in ms
@@ -264,56 +291,68 @@ int main(void) {
 
     // ####### larsm's bobby car code #######
 
+    #define INPUT_MAX 1000  // [-] Defines the Input target maximum limitation
+    #define INPUT_MIN -1000  // [-] Defines the Input target minimum limitation
+
     // LOW-PASS FILTER (fliessender Mittelwert)
     adc1_filtered = adc1_filtered * 0.9 + (float)adc_buffer.l_tx2 * 0.1;  // ADC1, TX, rechts, vorwaerts, blau
     adc2_filtered = adc2_filtered * 0.9 + (float)adc_buffer.l_rx2 * 0.1;  // ADC2, RX, links, rueckwearts, gruen
 
-    // magic numbers die ich nicht mehr nachvollziehen kann, faehrt sich aber gut ;-)
-    #define LOSLASS_BREMS_ACC 0.996f  // naeher an 1 = gemaechlicher
-    #define DRUECK_ACC2 (1.0f - LOSLASS_BREMS_ACC + 0.001f)  // naeher an 0 = gemaechlicher
-    #define DRUECK_ACC1 (1.0f - LOSLASS_BREMS_ACC + 0.001f)  // naeher an 0 = gemaechlicher
-    //die + 0.001f gleichen float ungenauigkeiten aus.
+    // poti range normalized from ADC1_MIN - ADC1_MAX to 0.0 - 1.0
+    acc_cmd = CLAMP((adc1_filtered - ADC1_MIN) / (ADC1_MAX - ADC1_MIN), 0, 1.0);
+    brk_cmd = CLAMP((adc2_filtered - ADC2_MIN) / (ADC2_MAX - ADC2_MIN), 0, 1.0);
 
-    #define ADC2_DELTA (ADC2_MAX - ADC2_MIN)
-    #define ADC1_DELTA (ADC1_MAX - ADC1_MIN)
-
-    if (mode == 1) {  // Mode 1, links: 3 kmh
-      speedRL = (float)speedRL * LOSLASS_BREMS_ACC  // bremsen wenn kein poti gedrueckt
-              - (CLAMP(adc_buffer.l_rx2 - ADC2_MIN, 0, ADC2_DELTA) / (ADC2_DELTA / 280.0f)) * DRUECK_ACC2   // links gedrueckt = zusatzbremsen oder rueckwaertsfahren
-              + (CLAMP(adc_buffer.l_tx2 - ADC1_MIN, 0, ADC1_DELTA) / (ADC1_DELTA / 350.0f)) * DRUECK_ACC1;  // vorwaerts gedrueckt = beschleunigen 12s: 350=3kmh
-      weakl = 0;
-      weakr = 0;
-
-    } else if (mode == 2) { // Mode 2, default: 6 kmh
-      speedRL = (float)speedRL * LOSLASS_BREMS_ACC
-              - (CLAMP(adc_buffer.l_rx2 - ADC2_MIN, 0, ADC2_DELTA) / (ADC2_DELTA / 310.0f)) * DRUECK_ACC2
-              + (CLAMP(adc_buffer.l_tx2 - ADC1_MIN, 0, ADC1_DELTA) / (ADC1_DELTA / 420.0f)) * DRUECK_ACC1;  // 12s: 400=5-6kmh 450=7kmh
-      weakl = 0;
-      weakr = 0;
-
-    } else if (mode == 3) { // Mode 3, rechts: 12 kmh
-      speedRL = (float)speedRL * LOSLASS_BREMS_ACC
-              - (CLAMP(adc_buffer.l_rx2 - ADC2_MIN, 0, ADC2_DELTA) / (ADC2_DELTA / 340.0f)) * DRUECK_ACC2
-              + (CLAMP(adc_buffer.l_tx2 - ADC1_MIN, 0, ADC1_DELTA) / (ADC1_DELTA / 600.0f)) * DRUECK_ACC1;  // 12s: 600=12kmh
-      weakl = 0;
-      weakr = 0;
-
-    } else if (mode == 4) { // Mode 4, l + r: full kmh
-      // Feldschwaechung wird nur aktiviert wenn man schon sehr schnell ist. So gehts: Rechts voll druecken und warten bis man schnell ist, dann zusaetzlich links schnell voll druecken.
-      if (adc2_filtered > (ADC2_MAX - 450) && speedRL > 800) { // field weakening at high speeds
-        speedRL = (float)speedRL * LOSLASS_BREMS_ACC
-              + (CLAMP(adc_buffer.l_tx2 - ADC1_MIN, 0, ADC1_DELTA) / (ADC1_DELTA / 1000.0f)) * DRUECK_ACC1;
-        weak = weak * 0.95 + 400.0 * 0.05;  // sanftes hinzuschalten des turbos, 12s: 400=29kmh
-      } else { //normale fahrt ohne feldschwaechung
-        speedRL = (float)speedRL * LOSLASS_BREMS_ACC
-              - (CLAMP(adc_buffer.l_rx2 - ADC2_MIN, 0, ADC2_DELTA) / (ADC2_DELTA / 340.0f)) * DRUECK_ACC2
-              + (CLAMP(adc_buffer.l_tx2 - ADC1_MIN, 0, ADC1_DELTA) / (ADC1_DELTA / 1000.0f)) * DRUECK_ACC1;  // 12s: 1000=22kmh
-        weak = weak * 0.95;  // sanftes abschalten des turbos
+    #ifndef CALIBRATION_MODE
+    // if poti is significantly out of range: break and poweroff. if MAX or MIN gets too close to 0 or 4095 this feature gets disabled.
+    if(adc1_filtered < ((ADC1_MIN < 100) ? 0 : 50) || adc1_filtered > ((ADC1_MAX > 4095-400) ? 4095 : 4095-50) || adc2_filtered < ((ADC2_MIN < 100) ? 0 : 50) || adc2_filtered > ((ADC2_MAX > 4095-400) ? 4095 : 4095-50)){
+      acc_cmd = brk_cmd = 0.0;
+      if (ABS((int)speedRL) < 5) {  // error beep
+        printf("# Poti significantly out of range: power off\n");
+        for(uint8_t i = 0; i < 6; i++) {
+          buzzerFreq = 6;
+          HAL_Delay(50);
+          buzzerFreq = 0;
+          HAL_Delay(50);
+          buzzerFreq = 8;
+          HAL_Delay(50);
+          buzzerFreq = 0;
+          HAL_Delay(50);
+        }
+        poweroff();
       }
-      weakr = weakl = (int)weak; // weak should never exceed 400 or 450 MAX!!
+    }
+    #endif
+
+    if (drive_mode == 1) {  // Mode 1: 3 km/h@12s
+      speedRL = speedRL * (1.0 - (speedRL > 0 ? ACC_FORWARDS_M1/MAX_SPEED_FORWARDS_M1*5.0 : ACC_BACKWARDS_M1/MAX_SPEED_BACKWARDS_M1*5.0))  // breaking if poti is not pressed
+              + acc_cmd * ACC_FORWARDS_M1*5.0  // accelerating forwards
+              - brk_cmd * ACC_BACKWARDS_M1*5.0;  // accelerating backwards
+
+    } else if (drive_mode == 2) {  // Mode 2: 6 km/h@12s
+      speedRL = speedRL * (1.0 - (speedRL > 0 ? ACC_FORWARDS_M2/MAX_SPEED_FORWARDS_M2*5.0 : ACC_BACKWARDS_M2/MAX_SPEED_BACKWARDS_M2*5.0))  // breaking if poti is not pressed
+              + acc_cmd * ACC_FORWARDS_M2*5.0  // accelerating forwards
+              - brk_cmd * ACC_BACKWARDS_M2*5.0;  // accelerating backwards
+
+    } else if (drive_mode == 3) {  // Mode 3: 12 km/h@12s
+      speedRL = speedRL * (1.0 - (speedRL > 0 ? ACC_FORWARDS_M3/MAX_SPEED_FORWARDS_M3*5.0 : ACC_BACKWARDS_M3/MAX_SPEED_BACKWARDS_M3*5.0))  // breaking if poti is not pressed
+              + acc_cmd * ACC_FORWARDS_M3*5.0  // accelerating forwards
+              - brk_cmd * ACC_BACKWARDS_M3*5.0;  // accelerating backwards
+
+    } else if (drive_mode == 4) {  // Mode 4: without fw: 21 km/h@12s, with fw: 30 km/h@12s
+      if(acc_cmd > 0.8 & brk_cmd > 0.8 & speedRL > 0.7 * (float)INPUT_MAX){  // fahrzeug schnell, gas und bremse voll gedrueckt: field weakening
+        speedRL = speedRL * (1.0 - (speedRL > 0 ? ACC_FORWARDS_M4/MAX_SPEED_FORWARDS_M4*5.0 : ACC_BACKWARDS_M4/MAX_SPEED_BACKWARDS_M4*5.0))  // breaking if poti is not pressed
+                + acc_cmd * ACC_FORWARDS_M4*5.0;  // accelerating forwards
+        weak = weak * 0.95 + 400.0 * 0.05;  // sanftes hinzuschalten des field weakening
+      } else {  // nur gas gedrueckt: normale fahrt ohne field weakening
+        speedRL = speedRL * (1.0 - (speedRL > 0 ? ACC_FORWARDS_M4/MAX_SPEED_FORWARDS_M4*5.0 : ACC_BACKWARDS_M4/MAX_SPEED_BACKWARDS_M4*5.0))  // breaking if poti is not pressed
+                + acc_cmd * ACC_FORWARDS_M4*5.0  // accelerating forwards
+                - brk_cmd * ACC_BACKWARDS_M4*5.0;  // accelerating backwards
+        weak = weak * 0.95;  // sanftes abschalten des field weakening
+      }
+      weakr = weakl = (int)weak;  // weak should never exceed 400 or 450 MAX!!
     }
 
-    speed = speedR = speedL = CLAMP(speedRL, -1000, 1000);  // clamp output
+    speed = speedR = speedL = CLAMP((int16_t)speedRL, INPUT_MIN, INPUT_MAX);  // clamp output
 
 
     // ####### LOW-PASS FILTER #######
@@ -348,22 +387,24 @@ int main(void) {
     lastSpeedL = speedL;
     lastSpeedR = speedR;
 
-    if (inactivity_timeout_counter % 25 == 0) {
+    if (inactivity_timeout_counter % 30 == 0) {
       // ####### CALC BOARD TEMPERATURE #######
       board_temp_adc_filtered = board_temp_adc_filtered * 0.99 + (float)adc_buffer.temp * 0.01;
       board_temp_deg_c = ((float)TEMP_CAL_HIGH_DEG_C - (float)TEMP_CAL_LOW_DEG_C) / ((float)TEMP_CAL_HIGH_ADC - (float)TEMP_CAL_LOW_ADC) * (board_temp_adc_filtered - (float)TEMP_CAL_LOW_ADC) + (float)TEMP_CAL_LOW_DEG_C;
       
       // ####### DEBUG SERIAL OUT #######
       #ifdef CONTROL_ADC
-        setScopeChannel(0, (int)adc1_filtered);  // 1: ADC1, TX, rechts, vorwaerts, blau
-        setScopeChannel(1, (int)adc2_filtered);  // 2: ADC2, RX, links, rueckwearts, gruen
+        setScopeChannel_i(0, (int16_t)adc1_filtered);  // ADC1, TX, rechts, vorwaerts, blau
+        setScopeChannel_i(1, (int16_t)adc2_filtered);  // ADC2, RX, links, rueckwearts, gruen
       #endif
-      setScopeChannel(2, (int)speedR);  // 3: output speed: 0-1000
-      setScopeChannel(3, (int)speedL);  // 4: output speed: 0-1000
-      setScopeChannel(4, (int)adc_buffer.batt1);  // 5: for battery voltage calibration
-      setScopeChannel(5, (int)(batteryVoltage * 100.0f));  // 6: for verifying battery voltage calibration
-      setScopeChannel(6, (int)board_temp_adc_filtered);  // 7: for board temperature calibration
-      setScopeChannel(7, (int)board_temp_deg_c);  // 8: for verifying board temperature calibration
+      setScopeChannel_f(2, acc_cmd);  // adc1_filtered normalized to 0.0 - 1.0
+      setScopeChannel_f(3, brk_cmd);  // adc2_filtered normalized to 0.0 - 1.0
+      setScopeChannel_i(4, speed);  // output speed: 0-1000
+      setScopeChannel_i(5, (int16_t)weakl);  // field weakening: 0-?
+      setScopeChannel_i(6, adc_buffer.batt1);  // for battery voltage calibration
+      setScopeChannel_f(7, batteryVoltage);  // for verifying battery voltage calibration
+      setScopeChannel_i(8, (int16_t)board_temp_adc_filtered);  // for board temperature calibration
+      setScopeChannel_f(9, board_temp_deg_c);  // for verifying board temperature calibration
       consoleScope();
     }
 
@@ -371,13 +412,16 @@ int main(void) {
     // ####### POWEROFF BY POWER-BUTTON #######
     if (HAL_GPIO_ReadPin(BUTTON_PORT, BUTTON_PIN) && weakr == 0 && weakl == 0) {
       enable = 0;
+      printf("# Power button down, waiting for release...\n");
       while (HAL_GPIO_ReadPin(BUTTON_PORT, BUTTON_PIN)) {}
+      printf("# Power button up: power off\n");
       poweroff();
     }
 
 
     // ####### BEEP AND EMERGENCY POWEROFF #######
-    if ((TEMP_POWEROFF_ENABLE && board_temp_deg_c >= TEMP_POWEROFF && abs(speed) < 20) || (batteryVoltage < ((float)BAT_LOW_DEAD * (float)BAT_NUMBER_OF_CELLS) && abs(speed) < 20)) {  // poweroff before mainboard burns OR low bat 3
+    if ((TEMP_POWEROFF_ENABLE && board_temp_deg_c >= TEMP_POWEROFF && ABS(speed) < 20) || (batteryVoltage < ((float)BAT_LOW_DEAD * (float)BAT_NUMBER_OF_CELLS) && ABS(speed) < 20)) {  // poweroff before mainboard burns OR low bat 3
+      printf("# CPU overtemp or low bat: power off\n");
       poweroff();
     } else if (TEMP_WARNING_ENABLE && board_temp_deg_c >= TEMP_WARNING) {  // beep if mainboard gets hot
       buzzerFreq = 4;
@@ -398,12 +442,13 @@ int main(void) {
 
 
     // ####### INACTIVITY TIMEOUT #######
-    if (abs(speedL) > 50 || abs(speedR) > 50) {
+    if (ABS(speedL) > 50 || ABS(speedR) > 50) {
       inactivity_timeout_counter = 0;
     } else {
       inactivity_timeout_counter ++;
     }
     if (inactivity_timeout_counter > (INACTIVITY_TIMEOUT * 60 * 1000) / (DELAY_IN_MAIN_LOOP + 1)) {  // rest of main loop needs maybe 1ms
+      printf("# inactivity timeout: power off\n");
       poweroff();
     }
   }
