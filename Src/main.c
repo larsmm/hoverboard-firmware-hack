@@ -421,15 +421,19 @@ int main(void) {
 
     // ####### BEEP AND EMERGENCY POWEROFF #######
     if ((TEMP_POWEROFF_ENABLE && board_temp_deg_c >= TEMP_POWEROFF && ABS(speed) < 20) || (batteryVoltage < ((float)BAT_LOW_DEAD * (float)BAT_NUMBER_OF_CELLS) && ABS(speed) < 20)) {  // poweroff before mainboard burns OR low bat 3
-      printf("# CPU overtemp or low bat: power off\n");
+      if (TEMP_POWEROFF_ENABLE && board_temp_deg_c >= TEMP_POWEROFF) printf("# Error: STM32 overtemp: %4.1f°C: power off\n", board_temp_deg_c);
+      if (batteryVoltage < ((float)BAT_LOW_DEAD * (float)BAT_NUMBER_OF_CELLS)) printf("# Battery empty: %4.2fV: power off\n", batteryVoltage);
       poweroff();
     } else if (TEMP_WARNING_ENABLE && board_temp_deg_c >= TEMP_WARNING) {  // beep if mainboard gets hot
+      printf("# Warning: STM32 is getting hot: %4.1f°C\n", board_temp_deg_c);
       buzzerFreq = 4;
       buzzerPattern = 1;
     } else if (batteryVoltage < ((float)BAT_LOW_LVL1 * (float)BAT_NUMBER_OF_CELLS) && batteryVoltage > ((float)BAT_LOW_LVL2 * (float)BAT_NUMBER_OF_CELLS) && BAT_LOW_LVL1_ENABLE) {  // low bat 1: slow beep
+      printf("# Warning: Battery is getting empty 1: %4.2fV\n", batteryVoltage);
       buzzerFreq = 5;
       buzzerPattern = 42;
     } else if (batteryVoltage < ((float)BAT_LOW_LVL2 * (float)BAT_NUMBER_OF_CELLS) && batteryVoltage > ((float)BAT_LOW_DEAD * (float)BAT_NUMBER_OF_CELLS) && BAT_LOW_LVL2_ENABLE) {  // low bat 2: fast beep
+      printf("# Warning: Battery is getting empty 2: %4.2fV\n", batteryVoltage);
       buzzerFreq = 5;
       buzzerPattern = 6;
     } else if (BEEPS_BACKWARD && speed < -50) {  // backward beep
